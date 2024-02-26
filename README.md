@@ -15,7 +15,7 @@
 
 在 Emoji 處理的部分我參考了兩篇文獻及研究報告 [3, 4]，文獻中成功展示了經過 emoji2desc 後的表現更為出色，故綜合以上，我預期的 Evaluation score 由高到低分別是 emoji2desc_zh ≈ emoji2desc_en > raw > rmemoji > rmpunc，但最終結果顯示為 (F1 score) rmemoji (0.9789) > raw (0.9728) > emoji2desc_zh (0.9721) > emoji2desc_en (0.9629) > rmpunc  (0.9561)，這部分的詳細原因會留待 Error Analysis 時再來討論。
 
-![Fig. 1 Workflow](workflow.png)
+![Fig. 1 Workflow](Image/workflow.png)
 
 ## Preparing the training data
 在訓練資料的準備上大致可以分為兩種方法，分別為 Overall & Game Layer 使用的 Word2Vec model 標記和 SA Layer 使用的 pseudo-labeled training set。在 Overall & Game Layer 的部分，我參考了文獻中為 Multi-label classification 標記資料的方法 [5]，為企排訓練了一個專屬的 Word2Vec model，訓練資料包括 
@@ -32,7 +32,7 @@
 
 以球員綽號 “卡拉”為例，可以發現在 (a) 只含有留言資料的模型含有較多的雜訊，在 (b) 留言資料 groupby sentence + 新聞逐字稿和 (c) 留言資料 groupby game + 新聞逐字稿均能較準確的辨認出其他球員名稱及綽號，但在 (c) 組整體分數較低，故最後選擇使用 (b) 組資料作為 Word2Vec model 訓練資料。 
 
-![alt text](<W2V comparison.png>)
+![alt text](<Image/W2V comparison.png>)
 
 在 Word2Vec model 準備完成後即可利用 Keywords 來標記訓練資料，Keywords 包括
 - 代表各隊的 Emoji
@@ -55,7 +55,7 @@
 
 標記後的各主題資料量如 Table 2 所示，可以看到球迷談論的話題主要集中在「加油」、「閒聊」、「球員」、「球隊」，次要話題如「轉播」、「教練」、「裁判」、「戰術」則較少球迷談論。
 
-![alt text](topic.png)
+![alt text](Image/topic.png)
 
 在 SA Layer 的部分，我利用並微調了 self-training 中 pseudo-labeled training set 的概念 [6]，利用 Hugging Face 平台上三個按讚和下載數最高的中文情緒分析模型，分別為
 
@@ -67,59 +67,59 @@
 
 1. 利用預訓練模型對資料集做分類，會得到三組的預測和信心分數
 (只記錄分數高於 0.5 的預測)
-![!\[alt text\](<sa step 1.png>)](<pseudo-labeled training set by 3 pre-trained model.png>)
+![!\[alt text\](<sa step 1.png>)](<Image/pseudo-labeled training set by 3 pre-trained model.png>)
 
 2. 若三組預測結果均相同，則相信該預測正確，如 index 4, 7, 12...
 3. 取所有預測結果相同的，將信心分數取平均後由高到低排列並個別設立信心門檻
-![alt text](<information of pseudo-labeled training set by 3 pre-trained model.png>)
+![alt text](<Image/information of pseudo-labeled training set by 3 pre-trained model.png>)
 
 4. 最後取的訓練資料量和信心門檻如下，為了使模型不產生 bias，在 Positive 和 Negative 取的資料量相同，各取 2000 筆資料，信心門檻均高於 0.91，在 Neutral 的資料量較少，故只取了 150 筆資料並將信心門檻設在約 0.75，目的是在資料量及品質之間取一個平衡
-![alt text](<Number of SA Layer training data and scoring threshold.png>)
+![alt text](<Image/Number of SA Layer training data and scoring threshold.png>)
 
 ## Training
 相較於傳統的 LDA Topic modeling 分群 (clustering) 的想法，其運用的 Bag of words 概念較適用於在長文本、純機率分布且無上下文觀念，而 Hugging Face 平台上也有多個預訓練的中文主題分類模型，之所以沒有直接採用並作微調的原因是大部分的訓練集都是非常長的文本，且文本內容和主題取向也和企排留言相去甚遠。故我認為用參數量更大、運用 Transformer 架構且未經大量微調的 BERT-base-Chinese model [9] 來做 Text multi-label
 classification 更適合企排留言較短、主題發散的資料型態。設定參數如下
-![alt text](<Training hyperparameter.png>)
+![alt text](<Image/Training hyperparameter.png>)
 
 ### Training Process
-![alt text](<Training Process .png>)
+![alt text](<Image/Training Process .png>)
 
 ## Result & Discussion
 
 ### Training Result
-![alt text](<AUC score.png>)
-![alt text](<Training result (F1 score).png>)
+![alt text](<Image/AUC score.png>)
+![alt text](<Image/Training result (F1 score).png>)
 
 ### Performance
 
 #### Overall Layer
-![alt text](<Overall Layer performance.png>)
+![alt text](<Image/Overall Layer performance.png>)
 
 #### Game Layer
-![alt text](<Game Layer performance.png>)
+![alt text](<Image/Game Layer performance.png>)
 
 #### Sentiment Analysis Layer
-![alt text](<SA Layer performance.png>)
+![alt text](<Image/SA Layer performance.png>)
 
 下圖 (Fig. 5) 是將所有話題加總計算的熱度分數隨比賽時間變化曲線，記錄的是2023 年 3 月 25 日進行的企排 18 年總冠軍賽，由連莊排球隊出戰屏東台電男排。以藍色和灰色區分比賽期間和休息準備時間，數據顯示在比賽期間的熱度是整體高於休息時間，其中在一、二、三局比賽期間都可以看到在每局中段的時候聊天熱度相對開局和局末有一段低點，表示此時觀眾的注意力可能較不集中，但在關鍵的四、五局卻沒有發生這個狀況，而是熱度持續上升，並在最後關鍵時刻達到高峰。
 
-![alt text](<Change of heat by time.png>)
+![alt text](<Image/Change of heat by time.png>)
 
 下圖 (Fig. 6) 是 2023 年 3 月 25
 日進行的企排 18 年總冠軍賽的第五局實際的話題預
 測 demo 片段，畫面是用 Racing Bar Chart 的方式呈現各話題之間的此消彼長，各話題分數為了避免長條圖改變過於急促導致畫面混亂我是用 moving average (window = 20) 的方法做計算，即畫面上的這一秒的分數其實並非當下的話題分數，而是過去 20 秒的平均分數，時間下方的 Total 代表的是此時的聊天熱度。從底下的折線圖發現「球員」、「閒聊」、「加油」、「球隊」四個大主題佔據了大部分時間的主要話題，可以從留言區觀察到這個狀況，如「連莊加油 !!!!」會被判定為「球隊」和「加油」，「詹沒有打得不好接球比較差跟體力比較差而已」則會被判定為「球員」等等。若仔細審視結果可以發現在局間前段的時候，討論話題多為「閒聊」和「加油」，加油內容球員和球隊都有，球員和球隊佔比不會差到太多，但到了局間後段時，討論話題會集中在「球員」、「加油」和「閒聊」，可以推測到了比賽後期大家更傾向為隊上較能左右戰局的王牌球員加油。次要話題熱度的升高通常會伴隨特殊事件，如有爭議判決時「裁判」的熱度會急劇升高，但隨著比賽繼續進行則會馬上回落。Fig. 7 呈現的是該場當直播觀眾數超過一萬人的瞬間的話題分佈，可以看到轉播的分數在折線圖上急劇的上升，連帶的帶動聊天熱度上升到 9 以上（平均約在 3~4）。
 
-![alt text](<Prediction demo of championship game 5.png>)
+![alt text](<Image/Prediction demo of championship game 5.png>)
 
-![alt text](<The topic popularity distribution when the number of livestream audiences over 10k.png>)
+![alt text](<Image/The topic popularity distribution when the number of livestream audiences over 10k.png>)
 
 不尋常的偶發事件也有可能導致特定話題獨走，且單從比賽轉播內容完全觀察不到場外發生什麼事情，如 Fig. 8 所呈現。這是 2023 年 2 月 11日晚間的比賽，由連莊排球隊出戰台中太陽神，當比賽約進行了一個半小時的時候，比賽內容正轉播著挑戰判決和球迷的加油，理論上「裁判」、「加油」等分數應當最高，但可以從預測長條圖中發現此時的話題熱度呈現「閒聊」獨走而其他話題幾乎歸零，事實上從留言區就可以看出端倪，在當天 19:35分左右在花蓮發生了一起規模 5.2 的地震，全台有感，故此時留言均在討論地震，沒有心思在比賽上才造成的獨特現象。
 
-![alt text](Earthquake.png)
+![alt text](Image/Earthquake.png)
 
 ## Error Analysis
 
-![alt text](<F1 score of each Topic.png>)
+![alt text](<Image/F1 score of each Topic.png>)
 
 儘管模型在話題分類上展現了非常高的準確率，三個分類器的 AUC 均高達 99
 以上，八大主題的 F1 score 均高於 0.96，且其中四個四捨五入後為 0.99，但仍舊可以從錯誤分類中找出繼續精進的方向。資料中不重複留言總數為 122076 筆，分類錯誤留言數為4170 筆，完全正確率為 96.5841%（因為是做 Multi-label classification，單一留言可能會有多重主題，若該留言有三個主題但模型只有預測出其中兩個也會被歸類在分類錯誤留言，故完全正確率會相較個別主題正確率有些微下修），在分類錯誤留言中我發現有兩個主要的問
